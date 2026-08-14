@@ -1,0 +1,9 @@
+{
+  "name": "com.autodownloadconverter.host",
+  "description": "Auto Download Converter native messaging host - runs FFmpeg/Pandoc/LibreOffice locally on behalf of the extension. Never transmits file contents anywhere.",
+  "path": "__HOST_PATH__",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://__EXTENSION_ID__/"
+  ]
+}

@@ -1,0 +1,6 @@
+Auto Download Converter - sample text fixture.
+This file is used by the automated test suite to verify TXT-based conversions.
+It has multiple lines, some punctuation (commas, periods, quotes "like this"),
+and a line that is long enough to require word-wrapping when rendered onto a
+PDF page so the text layout logic actually gets exercised instead of trivially
+passing on a single short line.

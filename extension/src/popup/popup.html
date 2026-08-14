@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Auto Download Converter</title>
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="popup">
+    <header class="popup-header">
+      <div class="brand">
+        <img src="icons/icon-48.png" alt="" width="24" height="24" />
+        <span>Auto Download Converter</span>
+      </div>
+      <button id="openOptions" class="icon-btn" title="Open full settings" aria-label="Open full settings">&#9881;</button>
+    </header>
+
+    <button id="monitorToggle" class="monitor-toggle" type="button">
+      <span class="dot" id="monitorDot"></span>
+      <span id="monitorLabel">Checking status&hellip;</span>
+    </button>
+
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="statToday">&ndash;</div>
+        <div class="stat-label">Conversions today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statQueue">&ndash;</div>
+        <div class="stat-label">In queue</div>
+      </div>
+      <div class="stat-card stat-success">
+        <div class="stat-value" id="statSuccess">&ndash;</div>
+        <div class="stat-label">Successful</div>
+      </div>
+      <div class="stat-card stat-fail">
+        <div class="stat-value" id="statFailed">&ndash;</div>
+        <div class="stat-label">Failed</div>
+      </div>
+    </div>
+
+    <section class="recent">
+      <h2>Recent activity</h2>
+      <ul id="recentList" class="recent-list">
+        <li class="empty">No conversions yet</li>
+      </ul>
+    </section>
+
+    <section class="manual" id="manualSection">
+      <h2>Convert a file now</h2>
+      <p class="hint">Works even without the native host installed, for text/data/image formats.</p>
+      <input type="file" id="manualFile" />
+      <select id="manualTarget" disabled></select>
+      <button id="manualConvertBtn" class="primary-btn" disabled>Convert &amp; download</button>
+      <p class="manual-status" id="manualStatus"></p>
+    </section>
+
+    <footer class="popup-footer">
+      <button id="openQueue" class="link-btn">Queue</button>
+      <button id="openRules" class="link-btn">Rules</button>
+      <button id="openHistory" class="link-btn">History</button>
+      <button id="openEngines" class="link-btn">Engines</button>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

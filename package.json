@@ -1,0 +1,17 @@
+{
+  "name": "auto-download-converter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chromium/Edge extension that watches downloads and converts them to another format using local, user-approved rules and a hybrid (browser + native host) conversion engine.",
+  "workspaces": [
+    "extension",
+    "native-host"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=native-host && npm run build --workspace=extension",
+    "test": "npm run test --workspace=native-host && npm run test --workspace=extension",
+    "test:native-host": "npm run test --workspace=native-host",
+    "test:extension": "npm run test --workspace=extension"
+  },
+  "license": "MIT"
+}

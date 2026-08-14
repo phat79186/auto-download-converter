@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Auto Download Converter - Settings</title>
+<link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="app">
+    <nav class="sidebar">
+      <div class="brand">
+        <img src="icons/icon-48.png" alt="" width="28" height="28" />
+        <span>Auto Download<br />Converter</span>
+      </div>
+      <button class="nav-item active" data-view="dashboard">Dashboard</button>
+      <button class="nav-item" data-view="rules">Rules</button>
+      <button class="nav-item" data-view="queue">Queue</button>
+      <button class="nav-item" data-view="history">History</button>
+      <button class="nav-item" data-view="engines">Engines</button>
+      <button class="nav-item" data-view="settings">Settings</button>
+      <div class="sidebar-footer">v1.0.0 &middot; local-only, no uploads</div>
+    </nav>
+    <main class="content" id="content">
+      <!-- view content is rendered here by options.ts -->
+    </main>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

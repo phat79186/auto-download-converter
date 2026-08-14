@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Download Converter",
+  "version": "1.0.0",
+  "description": "Automatically converts downloaded files to a format you choose, using rules you control. Runs locally - files are never uploaded.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0gBGNWiHCpPNDgqAz2wXMvEGa+6MQzyPJF04u5kiBQDqkluNzEPiVajiQrsn/jXgirxE+mp2R1ItpR60dXHH7gujTeAHrK37B1RtbwrI0XyuQ94zGtbq2DgoB6azyz5VxHq7xXOHwlyAx3SneqVZfkbq2DX/FAC7I5xeAgMRZQLZ19/EBO4wQRb6Rd1G69YzaSEqOTKsTSmeTqw4/iaH/wRVJBsTOcUcsLuY875s4bGwHzWJ3zQpwHjvZLxDnhko9wyx9CNClxZT3nKSG1yiVzqNpKI4nCMhUXh+SYY9H/z06r9ddO407kgsClFLGcBRbtKAC1OZObxi189gcx8RKQIDAQAB",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "downloads",
+    "storage",
+    "notifications",
+    "nativeMessaging",
+    "contextMenus"
+  ],
+  "minimum_chrome_version": "116"
+}

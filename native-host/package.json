@@ -1,0 +1,22 @@
+{
+  "name": "auto-download-converter-host",
+  "version": "1.0.0",
+  "description": "Native messaging host for the Auto Download Converter browser extension. Invokes FFmpeg/Pandoc/LibreOffice locally; never transmits file contents anywhere.",
+  "type": "module",
+  "bin": {
+    "auto-download-converter-host": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "start": "node dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
