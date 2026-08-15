@@ -101,6 +101,7 @@ export async function downloadYoutubeVideo(
   allowedRoots: string[],
   configuredPaths?: Partial<Record<"ffmpeg", string>>
 ): Promise<YoutubeDownloadResult> {
+  let outputTemplate: string | null = null;
   try {
     const ytdlpPath = await ensureYtdlp();
     
@@ -134,7 +135,7 @@ export async function downloadYoutubeVideo(
     const rawOutputPath = path.join(outputDir, filename);
     const safeOutputPath = validateOutputPath(rawOutputPath, allowedRoots);
     const finalOutputPath = await resolveUniquePath(path.dirname(safeOutputPath), path.basename(safeOutputPath));
-    const outputTemplate = finalOutputPath.replace(/\.[^.]+$/, ".%(ext)s");
+    outputTemplate = finalOutputPath.replace(/\.[^.]+$/, ".%(ext)s");
 
     log(`Downloading to: ${finalOutputPath}`);
     const args: string[] = [
@@ -200,6 +201,24 @@ export async function downloadYoutubeVideo(
     };
   } catch (err) {
     log("Download failed:", err);
+    if (outputTemplate) {
+      try {
+        const baseTemp = outputTemplate.replace(".%(ext)s", "");
+        const dir = path.dirname(outputTemplate);
+        if (fs.existsSync(dir)) {
+          const files = fs.readdirSync(dir);
+          for (const file of files) {
+            const fullPath = path.join(dir, file);
+            if (fullPath.startsWith(baseTemp) && (file.endsWith(".part") || file.endsWith(".ytdl"))) {
+              fs.unlinkSync(fullPath);
+              log(`Cleaned up temp part file: ${fullPath}`);
+            }
+          }
+        }
+      } catch (cleanErr) {
+        log("Error during temp file cleanup:", cleanErr);
+      }
+    }
     return { ok: false, error: (err as Error).message };
   }
 }
