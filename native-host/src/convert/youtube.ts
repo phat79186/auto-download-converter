@@ -129,12 +129,16 @@ export async function downloadYoutubeVideo(
     const rawOutputPath = path.join(outputDir, filename);
     const safeOutputPath = validateOutputPath(rawOutputPath, allowedRoots);
     const finalOutputPath = await resolveUniquePath(path.dirname(safeOutputPath), path.basename(safeOutputPath));
+    const outputTemplate = finalOutputPath.replace(/\.[^.]+$/, ".%(ext)s");
 
     log(`Downloading to: ${finalOutputPath}`);
-    const args: string[] = [...jsRuntimeArgs];
+    const args: string[] = [
+      ...jsRuntimeArgs,
+      "--print", "after_move:filepath"
+    ];
 
-    // Integrate FFmpeg location if available
-    if (ffmpegInfo.installed && ffmpegInfo.path) {
+    // Integrate FFmpeg location if available (only if it is an absolute path)
+    if (ffmpegInfo.installed && ffmpegInfo.path && path.isAbsolute(ffmpegInfo.path)) {
       args.push("--ffmpeg-location", ffmpegInfo.path);
     }
 
@@ -149,19 +153,42 @@ export async function downloadYoutubeVideo(
       }
     }
 
-    args.push("-o", finalOutputPath, url);
+    args.push("-o", outputTemplate, url);
 
     // Run download (max 5 minutes)
-    await execFileAsync(ytdlpPath, args, { timeout: 300000 });
+    const { stdout } = await execFileAsync(ytdlpPath, args, { timeout: 300000 });
 
-    if (!fs.existsSync(finalOutputPath)) {
-      return { ok: false, error: "Download finished but output file was not found." };
+    const lines = stdout.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    
+    let actualOutputPath = finalOutputPath;
+    let found = false;
+    
+    // Search stdout lines for the path that actually exists
+    for (const line of lines) {
+      if (line.includes(path.dirname(finalOutputPath)) && fs.existsSync(line)) {
+        actualOutputPath = line;
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      if (fs.existsSync(finalOutputPath)) {
+        actualOutputPath = finalOutputPath;
+      } else {
+        const potentialPath = outputTemplate.replace(".%(ext)s", `.${targetFormat}`);
+        if (fs.existsSync(potentialPath)) {
+          actualOutputPath = potentialPath;
+        } else {
+          return { ok: false, error: "Download finished but output file was not found." };
+        }
+      }
     }
 
-    const size = fs.statSync(finalOutputPath).size;
+    const size = fs.statSync(actualOutputPath).size;
     return {
       ok: true,
-      outputPath: finalOutputPath,
+      outputPath: actualOutputPath,
       outputSizeBytes: size
     };
   } catch (err) {
