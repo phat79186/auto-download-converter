@@ -116,7 +116,12 @@ export async function downloadYoutubeVideo(
     const jsRuntimeArgs = process.execPath ? ["--js-runtimes", `node:${process.execPath}`] : [];
     
     try {
-      const { stdout } = await execFileAsync(ytdlpPath, ["--print", "title", ...jsRuntimeArgs, url], { timeout: 15000 });
+      const env = { ...process.env, PYTHONIOENCODING: "utf-8" };
+      const { stdout } = await execFileAsync(
+        ytdlpPath,
+        ["--print", "title", "--encoding", "utf-8", ...jsRuntimeArgs, url],
+        { env, timeout: 15000 }
+      );
       if (stdout.trim()) {
         title = sanitizeFilename(stdout.trim());
       }
@@ -134,6 +139,7 @@ export async function downloadYoutubeVideo(
     log(`Downloading to: ${finalOutputPath}`);
     const args: string[] = [
       ...jsRuntimeArgs,
+      "--encoding", "utf-8",
       "--print", "after_move:filepath"
     ];
 
@@ -156,7 +162,8 @@ export async function downloadYoutubeVideo(
     args.push("-o", outputTemplate, url);
 
     // Run download (max 5 minutes)
-    const { stdout } = await execFileAsync(ytdlpPath, args, { timeout: 300000 });
+    const env = { ...process.env, PYTHONIOENCODING: "utf-8" };
+    const { stdout } = await execFileAsync(ytdlpPath, args, { env, timeout: 300000 });
 
     const lines = stdout.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
     
