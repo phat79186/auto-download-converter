@@ -17,6 +17,7 @@ function makeJob(overrides = {}) {
     targetExt: "pdf",
     outputFilename: "report.pdf",
     outputPath: "/downloads/report.pdf",
+    relativeSubpath: "report.pdf",
     ...overrides,
   });
 }
@@ -29,7 +30,7 @@ const BASE_OPTIONS = {
   notifyOnFailure: true,
 };
 
-function setup(backendOverrides: Partial<ConversionBackend> = {}, browserConvertImpl?: any) {
+function setup(backendOverrides: Partial<ConversionBackend> = {}, browserConvertImpl?: any, triggerDownloadImpl?: any) {
   const queueStore = new QueueStore(new InMemoryStore());
   const historyStore = new HistoryStore(new InMemoryStore());
   const notify = vi.fn();
@@ -41,13 +42,14 @@ function setup(backendOverrides: Partial<ConversionBackend> = {}, browserConvert
     ...backendOverrides,
   };
   const runBrowserConversion = browserConvertImpl ?? vi.fn(async () => ({ bytes: new ArrayBuffer(10), mimeType: "application/pdf" }));
-  const processor = new QueueProcessor(queueStore, historyStore, backend, runBrowserConversion, notify);
-  return { queueStore, historyStore, notify, backend, runBrowserConversion, processor };
+  const triggerBrowserDownload = triggerDownloadImpl ?? vi.fn(async () => ({ sizeBytes: 999, downloadId: 42 }));
+  const processor = new QueueProcessor(queueStore, historyStore, backend, runBrowserConversion, triggerBrowserDownload, notify);
+  return { queueStore, historyStore, notify, backend, runBrowserConversion, triggerBrowserDownload, processor };
 }
 
 describe("QueueProcessor - browser-native conversions", () => {
-  it("reads via native host, converts in JS, writes via native host, and marks the job completed", async () => {
-    const { processor, queueStore, backend } = setup();
+  it("reads via native host, converts in JS, saves via a real chrome.downloads.download() (triggerBrowserDownload), and marks the job completed", async () => {
+    const { processor, queueStore, backend, triggerBrowserDownload } = setup();
     const job = makeJob();
     await queueStore.enqueue(job);
 
@@ -55,9 +57,21 @@ describe("QueueProcessor - browser-native conversions", () => {
 
     expect(result.status).toBe("completed");
     expect(backend.readFile).toHaveBeenCalledWith("/downloads/report.txt", ["/downloads"]);
-    expect(backend.writeFile).toHaveBeenCalled();
+    expect(backend.writeFile).not.toHaveBeenCalled(); // must NOT silently write to disk - must go through the browser
+    expect(triggerBrowserDownload).toHaveBeenCalledWith(
+      expect.objectContaining({ filename: "report.pdf", mimeType: "application/pdf" })
+    );
     expect(result.outputSizeBytes).toBe(999);
     expect(result.engineUsed).toBe("browser");
+  });
+
+  it("fails cleanly if the job is missing relativeSubpath instead of silently writing somewhere unexpected", async () => {
+    const { processor, queueStore } = setup();
+    const job = makeJob({ relativeSubpath: null });
+    await queueStore.enqueue(job);
+    const result = await processor.processJob(job, BASE_OPTIONS);
+    expect(result.status).toBe("failed");
+    expect(result.error).toMatch(/relativeSubpath/);
   });
 
   it("records a history entry on success", async () => {
@@ -78,10 +92,12 @@ describe("QueueProcessor - browser-native conversions", () => {
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ isError: false }));
   });
 
-  it("treats a zero-byte output as a FAILURE, never a fake success", async () => {
-    const { processor, queueStore, historyStore } = setup({
-      writeFile: vi.fn(async () => ({ path: "/downloads/report.pdf", sizeBytes: 0 })),
-    });
+  it("treats a zero-byte saved download as a FAILURE, never a fake success", async () => {
+    const { processor, queueStore, historyStore } = setup(
+      {},
+      undefined,
+      vi.fn(async () => ({ sizeBytes: 0, downloadId: 1 }))
+    );
     const job = makeJob();
     await queueStore.enqueue(job);
     const result = await processor.processJob(job, BASE_OPTIONS);
@@ -89,6 +105,21 @@ describe("QueueProcessor - browser-native conversions", () => {
     expect(result.error).toMatch(/no usable output/);
     const history = await historyStore.list();
     expect(history[0]?.status).toBe("failed");
+  });
+
+  it("propagates a chrome.downloads failure (e.g. interrupted) as a job failure, not a fake success", async () => {
+    const { processor, queueStore } = setup(
+      {},
+      undefined,
+      vi.fn(async () => {
+        throw new Error("The save-to-Downloads step was interrupted");
+      })
+    );
+    const job = makeJob();
+    await queueStore.enqueue(job);
+    const result = await processor.processJob(job, BASE_OPTIONS);
+    expect(result.status).toBe("failed");
+    expect(result.error).toContain("interrupted");
   });
 
   it("propagates a readFile error as a job failure with a clear message, not a silent success", async () => {
@@ -113,11 +144,13 @@ describe("QueueProcessor - browser-native conversions", () => {
   });
 
   it("does NOT delete the original if the conversion failed", async () => {
-    const { processor, queueStore, backend } = setup({
-      writeFile: vi.fn(async () => {
+    const { processor, queueStore, backend } = setup(
+      {},
+      undefined,
+      vi.fn(async () => {
         throw new Error("disk full");
-      }),
-    });
+      })
+    );
     const job = makeJob();
     await queueStore.enqueue(job);
     await processor.processJob(job, { ...BASE_OPTIONS, deleteOriginal: true });
@@ -125,11 +158,7 @@ describe("QueueProcessor - browser-native conversions", () => {
   });
 
   it("a delete-original failure does not turn a successful conversion into a failed job", async () => {
-    const { processor, queueStore } = setup({
-      deleteFile: vi.fn(async () => {
-        throw new Error("permission denied");
-      }),
-    });
+    const { processor, queueStore } = setup();
     const job = makeJob();
     await queueStore.enqueue(job);
     const result = await processor.processJob(job, { ...BASE_OPTIONS, deleteOriginal: true });

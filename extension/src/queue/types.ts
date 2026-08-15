@@ -25,6 +25,9 @@ export interface ConversionJob {
   outputFilename: string | null;
   outputPath: string | null;
   outputSizeBytes: number | null;
+  /** Forward-slash path relative to the source file's directory - see jobBuilder.ts. Used to
+   *  trigger a real chrome.downloads.download() for browser-native conversions. */
+  relativeSubpath: string | null;
 
   error: string | null;
   retryCount: number;
@@ -48,6 +51,7 @@ function jobDefaults() {
     outputFilename: null as string | null,
     outputPath: null as string | null,
     outputSizeBytes: null as number | null,
+    relativeSubpath: null as string | null,
     error: null as string | null,
     retryCount: 0,
     deleteOriginalRequested: false,

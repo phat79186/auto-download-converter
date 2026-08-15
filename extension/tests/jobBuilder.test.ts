@@ -8,18 +8,28 @@ describe("buildJobPaths", () => {
     const result = await buildJobPaths("/home/me/Downloads/report.txt", rule, async () => false);
     expect(result.skipped).toBe(false);
     expect(result.outputPath).toBe("/home/me/Downloads/report.pdf");
+    expect(result.relativeSubpath).toBe("report.pdf");
   });
 
   it("dedicated-folder: places output in the configured subfolder", async () => {
     const rule = createDefaultRule({ outputLocation: "dedicated-folder", dedicatedFolderName: "Converted", targetFormat: "pdf" });
     const result = await buildJobPaths("/home/me/Downloads/report.txt", rule, async () => false);
     expect(result.outputPath).toBe("/home/me/Downloads/Converted/report.pdf");
+    expect(result.relativeSubpath).toBe("Converted/report.pdf");
   });
 
   it("per-format-folder: places output in Converted/<FORMAT>/", async () => {
     const rule = createDefaultRule({ outputLocation: "per-format-folder", targetFormat: "pdf" });
     const result = await buildJobPaths("/home/me/Downloads/report.txt", rule, async () => false);
     expect(result.outputPath).toBe("/home/me/Downloads/Converted/PDF/report.pdf");
+    expect(result.relativeSubpath).toBe("Converted/PDF/report.pdf");
+  });
+
+  it("relativeSubpath always uses forward slashes, even for a Windows backslash source path", async () => {
+    const rule = createDefaultRule({ outputLocation: "dedicated-folder", dedicatedFolderName: "Converted", targetFormat: "pdf" });
+    const result = await buildJobPaths("C:\\Users\\me\\Downloads\\report.txt", rule, async () => false);
+    expect(result.relativeSubpath).toBe("Converted/report.pdf");
+    expect(result.relativeSubpath).not.toContain("\\");
   });
 
   it("preserves Windows backslash paths", async () => {

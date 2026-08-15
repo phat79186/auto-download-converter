@@ -12,6 +12,7 @@ import { buildJobPaths } from "./jobBuilder.js";
 import { computeAllowedRoots } from "./allowedRoots.js";
 import { createJob, jobToHistoryEntry } from "../queue/types.js";
 import { findConversion, CONVERSION_REGISTRY } from "../converters/registry.js";
+import { arrayBufferToBase64 } from "../shared/base64.js";
 
 const store = new ChromeLocalStore();
 const settingsStore = new SettingsStore(store);
@@ -51,7 +52,58 @@ const backend: ConversionBackend = {
   },
 };
 
-const processor = new QueueProcessor(queueStore, historyStore, backend, runBrowserConversion, notify);
+/**
+ * Download IDs this extension itself created via triggerBrowserDownload(), so
+ * handleCompletedDownload() can ignore them - otherwise a converted output landing
+ * back in the watched folder could in principle be picked up as a new "download to
+ * convert" and reprocessed. In-memory only (cleared on service worker restart), which
+ * is fine because the whole trigger-download -> onChanged-complete cycle normally
+ * finishes well within one service worker lifetime.
+ */
+const ownDownloadIds = new Set<number>();
+
+/**
+ * Saves converted bytes via a REAL chrome.downloads.download() call (not a silent
+ * native-host disk write) so the result shows up correctly in the browser's Downloads
+ * list/shelf - this is what was missing before. Only used for browser-native
+ * conversions (text/data/image), where outputs are small enough to pass as a data: URL.
+ */
+const triggerBrowserDownload: TriggerBrowserDownloadFn = (params) => {
+  return new Promise((resolve, reject) => {
+    const url = `data:${params.mimeType};base64,${arrayBufferToBase64(params.bytes)}`;
+
+    chrome.downloads.download({ url, filename: params.filename, conflictAction: "overwrite", saveAs: false }, (downloadId) => {
+      if (chrome.runtime.lastError || downloadId === undefined) {
+        reject(new Error(chrome.runtime.lastError?.message ?? "chrome.downloads.download failed to start"));
+        return;
+      }
+      ownDownloadIds.add(downloadId);
+
+      const timeout = setTimeout(() => {
+        chrome.downloads.onChanged.removeListener(listener);
+        reject(new Error("Timed out waiting for the save-to-Downloads step to complete"));
+      }, 30000);
+
+      const listener = (delta: chrome.downloads.DownloadDelta) => {
+        if (delta.id !== downloadId) return;
+        if (delta.state?.current === "complete") {
+          clearTimeout(timeout);
+          chrome.downloads.onChanged.removeListener(listener);
+          chrome.downloads.search({ id: downloadId }).then((items) => {
+            resolve({ sizeBytes: items[0]?.fileSize ?? 0, downloadId });
+          });
+        } else if (delta.state?.current === "interrupted") {
+          clearTimeout(timeout);
+          chrome.downloads.onChanged.removeListener(listener);
+          reject(new Error("The save-to-Downloads step was interrupted"));
+        }
+      };
+      chrome.downloads.onChanged.addListener(listener);
+    });
+  });
+};
+
+const processor = new QueueProcessor(queueStore, historyStore, backend, runBrowserConversion, triggerBrowserDownload, notify);
 
 let activeCount = 0;
 let pumpScheduled = false;
@@ -96,6 +148,14 @@ async function statExists(path: string): Promise<boolean> {
 }
 
 async function handleCompletedDownload(downloadId: number): Promise<void> {
+  if (ownDownloadIds.has(downloadId)) {
+    // This is a file WE just saved via triggerBrowserDownload() (the conversion output
+    // itself), not a new file to convert - ignore it, or every conversion would try to
+    // re-trigger itself indefinitely.
+    ownDownloadIds.delete(downloadId);
+    return;
+  }
+
   const items = await chrome.downloads.search({ id: downloadId });
   const item = items[0];
   if (!item || !item.filename) return;
@@ -151,6 +211,7 @@ async function handleCompletedDownload(downloadId: number): Promise<void> {
     targetExt: rule.targetFormat,
     outputFilename: paths.outputFilename ?? null,
     outputPath: paths.outputPath ?? null,
+    relativeSubpath: paths.relativeSubpath ?? null,
     deleteOriginalRequested: rule.deleteOriginal,
     status: rule.automaticConversion ? "queued" : "waiting",
   });

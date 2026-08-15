@@ -22,6 +22,16 @@ export interface ConversionBackend {
 
 export type BrowserConvertFn = (conversionId: string, inputBytes: ArrayBuffer) => Promise<{ bytes: ArrayBuffer; mimeType: string }>;
 
+/** Triggers a REAL chrome.downloads.download() so the converted file shows up in the
+ *  browser's Downloads list/shelf, not just written silently to disk. Implemented in
+ *  background/index.ts (needs chrome.downloads, only available there); satisfied by a
+ *  fake in tests. */
+export type TriggerBrowserDownloadFn = (params: {
+  filename: string;
+  bytes: ArrayBuffer;
+  mimeType: string;
+}) => Promise<{ sizeBytes: number; downloadId: number }>;
+
 export interface NotifyFn {
   (opts: { title: string; message: string; isError: boolean }): void;
 }
@@ -40,6 +50,7 @@ export class QueueProcessor {
     private historyStore: HistoryStore,
     private backend: ConversionBackend,
     private runBrowserConversion: BrowserConvertFn,
+    private triggerBrowserDownload: TriggerBrowserDownloadFn,
     private notify: NotifyFn
   ) {}
 
@@ -70,12 +81,21 @@ export class QueueProcessor {
         outputSizeBytes = result.outputSizeBytes;
         engineUsed = result.engineUsed ?? descriptor.requiredEngine ?? null;
       } else {
-        // Browser-native conversion: read via native host (extensions cannot read
-        // arbitrary local files directly), convert in JS, write back via native host.
+        // Browser-native conversion: read the source via the native host (extensions cannot
+        // read arbitrary local files directly), convert in JS, then save via a REAL
+        // chrome.downloads.download() call - not a silent native-host disk write - so the
+        // result correctly shows up in the browser's Downloads list/shelf.
+        if (!job.relativeSubpath) {
+          return this.fail(job, "Internal error: job is missing its relativeSubpath (needed to trigger a browser download).", options);
+        }
         const inputBytes = await this.backend.readFile(job.sourcePath, options.allowedRoots);
         const converted = await this.runBrowserConversion(descriptor.id, inputBytes);
-        const writeResult = await this.backend.writeFile(job.outputPath as string, converted.bytes, options.allowedRoots, options.overwrite);
-        outputSizeBytes = writeResult.sizeBytes;
+        const downloadResult = await this.triggerBrowserDownload({
+          filename: job.relativeSubpath,
+          bytes: converted.bytes,
+          mimeType: converted.mimeType,
+        });
+        outputSizeBytes = downloadResult.sizeBytes;
         engineUsed = "browser";
       }
 
