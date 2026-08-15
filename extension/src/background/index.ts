@@ -260,7 +260,9 @@ type UiMessage =
   | { type: "getEngines" }
   | { type: "pingNativeHost" }
   | { type: "getConversionRegistry" }
-  | { type: "convertFileNow"; filename: string; base64Data: string; conversionId: string };
+  | { type: "convertFileNow"; filename: string; base64Data: string; conversionId: string }
+  | { type: "downloadYoutubeFromContent"; url: string }
+  | { type: "downloadDirectFromContent"; url: string; title: string };
 
 chrome.runtime.onMessage.addListener((message: UiMessage, _sender, sendResponse) => {
   void (async () => {
@@ -340,6 +342,17 @@ async function routeMessage(message: UiMessage): Promise<unknown> {
       let binary = "";
       for (let i = 0; i < outBytes.length; i++) binary += String.fromCharCode(outBytes[i]!);
       return { base64Data: btoa(binary), mimeType: result.mimeType };
+    }
+    case "downloadYoutubeFromContent": {
+      void handleYoutubeDownload(message.url);
+      return { ok: true };
+    }
+    case "downloadDirectFromContent": {
+      const safeTitle = message.title.replace(/[<>:"/\\|?*]/g, "_").trim();
+      const ext = message.url.split(/[#?]/)[0].split(".").pop() || "mp4";
+      const filename = `${safeTitle}.${ext}`;
+      chrome.downloads.download({ url: message.url, filename, saveAs: false });
+      return { ok: true };
     }
     default:
       throw new Error(`Unknown message type: ${(message as { type: string }).type}`);

@@ -30,12 +30,16 @@ await bundle(path.join(__dirname, "src/popup/popup.ts"), path.join(OUT_DIR, "pop
 console.log("Bundling options...");
 await bundle(path.join(__dirname, "src/options/options.ts"), path.join(OUT_DIR, "options.js"), "iife");
 
+console.log("Bundling content script...");
+await bundle(path.join(__dirname, "src/content/content.ts"), path.join(OUT_DIR, "content.js"), "iife");
+
 console.log("Copying static assets...");
 fs.copyFileSync(path.join(__dirname, "manifest.json"), path.join(OUT_DIR, "manifest.json"));
 fs.copyFileSync(path.join(__dirname, "src/popup/popup.html"), path.join(OUT_DIR, "popup.html"));
 fs.copyFileSync(path.join(__dirname, "src/popup/popup.css"), path.join(OUT_DIR, "popup.css"));
 fs.copyFileSync(path.join(__dirname, "src/options/options.html"), path.join(OUT_DIR, "options.html"));
 fs.copyFileSync(path.join(__dirname, "src/options/options.css"), path.join(OUT_DIR, "options.css"));
+fs.copyFileSync(path.join(__dirname, "src/content/content.css"), path.join(OUT_DIR, "content.css"));
 
 fs.mkdirSync(path.join(OUT_DIR, "icons"), { recursive: true });
 for (const f of fs.readdirSync(path.join(__dirname, "icons"))) {
