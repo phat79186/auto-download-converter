@@ -43,26 +43,29 @@ function setupButtons() {
       e.stopPropagation();
       e.preventDefault();
       
-      const isYoutube = window.location.hostname.includes("youtube.com") || window.location.hostname.includes("youtu.be");
+      const src = video.currentSrc || video.src;
+      const isDirect = src && !src.startsWith("blob:") && !src.startsWith("data:") && (src.startsWith("http://") || src.startsWith("https://"));
       
-      if (isYoutube) {
-        // Send page URL for YouTube (handles playlists/videos correctly via yt-dlp)
+      const isMajorPlatform = 
+        window.location.hostname.includes("youtube.com") || 
+        window.location.hostname.includes("youtu.be") ||
+        window.location.hostname.includes("facebook.com") ||
+        window.location.hostname.includes("fb.watch") ||
+        window.location.hostname.includes("tiktok.com") ||
+        window.location.hostname.includes("instagram.com") ||
+        window.location.hostname.includes("x.com") ||
+        window.location.hostname.includes("twitter.com") ||
+        window.location.hostname.includes("reddit.com") ||
+        window.location.hostname.includes("vimeo.com") ||
+        window.location.hostname.includes("twitch.tv");
+
+      if (isMajorPlatform || !isDirect) {
+        // Send page URL to download using yt-dlp native downloader
         chrome.runtime.sendMessage({
           type: "downloadYoutubeFromContent",
           url: window.location.href
         });
       } else {
-        const src = video.currentSrc || video.src;
-        if (!src) {
-          alert("No direct video source URL found.");
-          return;
-        }
-        
-        if (src.startsWith("blob:")) {
-          alert("This video uses adaptive streaming (blob). Only direct video source URLs (e.g. MP4) or YouTube pages can be downloaded directly.");
-          return;
-        }
-        
         chrome.runtime.sendMessage({
           type: "downloadDirectFromContent",
           url: src,

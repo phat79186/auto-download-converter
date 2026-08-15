@@ -389,6 +389,30 @@ async function getBaseDownloadsDir(): Promise<string> {
 async function handleYoutubeDownload(url: string): Promise<void> {
   const baseDir = await getBaseDownloadsDir();
   
+  let sourceName = "YouTube Video";
+  if (url.includes("facebook.com") || url.includes("fb.watch")) {
+    sourceName = "Facebook Video";
+  } else if (url.includes("tiktok.com")) {
+    sourceName = "TikTok Video";
+  } else if (url.includes("instagram.com")) {
+    sourceName = "Instagram Video";
+  } else if (url.includes("twitter.com") || url.includes("x.com")) {
+    sourceName = "Twitter Video";
+  } else if (url.includes("reddit.com")) {
+    sourceName = "Reddit Video";
+  } else if (url.includes("vimeo.com")) {
+    sourceName = "Vimeo Video";
+  } else if (url.includes("twitch.tv")) {
+    sourceName = "Twitch Video";
+  } else {
+    try {
+      const hostname = new URL(url).hostname;
+      sourceName = hostname.replace("www.", "") + " Video";
+    } catch {
+      sourceName = "Web Video";
+    }
+  }
+
   const fileInfo: DownloadFileInfo = {
     filename: "youtube_video.youtube",
     extension: "youtube",
@@ -426,7 +450,7 @@ async function handleYoutubeDownload(url: string): Promise<void> {
     downloadId: null,
     ruleId: rule?.id ?? null,
     conversionId: `youtube->${targetFormat}`,
-    sourceFilename: "YouTube Video",
+    sourceFilename: sourceName,
     sourcePath: url,
     sourceExt: "youtube",
     targetExt: targetFormat,
@@ -437,9 +461,9 @@ async function handleYoutubeDownload(url: string): Promise<void> {
   });
   
   job.status = "processing";
-  job.message = "Initializing YouTube download...";
+  job.message = `Initializing ${sourceName} download...`;
   await queueStore.enqueue(job);
-  notify({ title: "YouTube Download Started", message: "Downloading video via yt-dlp...", isError: false });
+  notify({ title: `${sourceName} Download Started`, message: "Downloading video via yt-dlp...", isError: false });
 
   const notifyOnSuccess = rule?.notifyOnSuccess ?? true;
   const notifyOnFailure = rule?.notifyOnFailure ?? true;
@@ -479,7 +503,7 @@ async function handleYoutubeDownload(url: string): Promise<void> {
       await historyStore.add(historyEntry);
       
       if (notifyOnSuccess) {
-        notify({ title: "YouTube Download Success", message: finalFilename, isError: false });
+        notify({ title: `${sourceName} Download Success`, message: finalFilename, isError: false });
       }
     } else {
       throw new Error(res.error ?? "Unknown error during download");
@@ -495,7 +519,7 @@ async function handleYoutubeDownload(url: string): Promise<void> {
     await historyStore.add(historyEntry);
     
     if (notifyOnFailure) {
-      notify({ title: "YouTube Download Failed", message: errMsg, isError: true });
+      notify({ title: `${sourceName} Download Failed`, message: errMsg, isError: true });
     }
   }
 }
@@ -507,7 +531,16 @@ function registerContextMenus(): void {
         id: "download-youtube",
         title: "Download Video via Auto Download Converter",
         contexts: ["page", "link"],
-        documentUrlPatterns: ["*://*.youtube.com/*", "*://youtu.be/*"]
+        documentUrlPatterns: [
+          "*://*.youtube.com/*", "*://youtu.be/*",
+          "*://*.facebook.com/*", "*://fb.watch/*",
+          "*://*.tiktok.com/*",
+          "*://*.instagram.com/*",
+          "*://*.x.com/*", "*://*.twitter.com/*",
+          "*://*.reddit.com/*",
+          "*://*.vimeo.com/*",
+          "*://*.twitch.tv/*"
+        ]
       }, () => {
         if (chrome.runtime.lastError) {
           // ignore
