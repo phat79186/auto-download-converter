@@ -120,7 +120,13 @@ export async function downloadYoutubeVideo(
       const env = { ...process.env, PYTHONIOENCODING: "utf-8" };
       const { stdout } = await execFileAsync(
         ytdlpPath,
-        ["--print", "title", "--encoding", "utf-8", ...jsRuntimeArgs, url],
+        [
+          "--print", "title",
+          "--encoding", "utf-8",
+          "--extractor-args", "youtube:player_client=mweb,default",
+          ...jsRuntimeArgs,
+          url
+        ],
         { env, timeout: 15000 }
       );
       if (stdout.trim()) {
@@ -141,6 +147,7 @@ export async function downloadYoutubeVideo(
     const args: string[] = [
       ...jsRuntimeArgs,
       "--encoding", "utf-8",
+      "--extractor-args", "youtube:player_client=mweb,default",
       "--print", "after_move:filepath"
     ];
 
