@@ -262,6 +262,7 @@ export class NativeMessagingClient {
   async downloadYoutube(params: {
     jobId: string;
     url: string;
+    referer?: string;
     targetFormat: "mp4" | "mp3";
     outputDir: string;
     allowedRoots: string[];
@@ -279,6 +280,7 @@ export class NativeMessagingClient {
         id: crypto.randomUUID(),
         jobId: params.jobId,
         url: params.url,
+        referer: params.referer,
         targetFormat: params.targetFormat,
         outputDir: params.outputDir,
         allowedRoots: params.allowedRoots,

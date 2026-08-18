@@ -77,7 +77,14 @@ async function dispatch(req: HostRequest): Promise<void> {
     }
 
     if (req.type === "youtubeDownload") {
-      const result = await downloadYoutubeVideo(req.url, req.targetFormat, req.outputDir, req.allowedRoots, req.configuredPaths);
+      const result = await downloadYoutubeVideo(
+        req.url,
+        req.targetFormat,
+        req.outputDir,
+        req.allowedRoots,
+        req.configuredPaths,
+        req.referer
+      );
       writeMessage({
         type: "youtubeDownload",
         id: req.id,

@@ -70,6 +70,7 @@ export interface YoutubeDownloadRequest {
   id: string;
   jobId: string;
   url: string;
+  referer?: string;
   targetFormat: "mp4" | "mp3";
   outputDir: string;
   allowedRoots: string[];

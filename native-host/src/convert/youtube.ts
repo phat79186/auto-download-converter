@@ -99,7 +99,8 @@ export async function downloadYoutubeVideo(
   targetFormat: "mp4" | "mp3",
   outputDir: string,
   allowedRoots: string[],
-  configuredPaths?: Partial<Record<"ffmpeg", string>>
+  configuredPaths?: Partial<Record<"ffmpeg", string>>,
+  referer?: string
 ): Promise<YoutubeDownloadResult> {
   let outputTemplate: string | null = null;
   try {
@@ -118,17 +119,19 @@ export async function downloadYoutubeVideo(
     
     try {
       const env = { ...process.env, PYTHONIOENCODING: "utf-8" };
-      const { stdout } = await execFileAsync(
-        ytdlpPath,
-        [
-          "--print", "title",
-          "--encoding", "utf-8",
-          "--extractor-args", "youtube:player_client=mweb,default",
-          ...jsRuntimeArgs,
-          url
-        ],
-        { env, timeout: 15000 }
-      );
+      const titleArgs = [
+        "--print", "title",
+        "--encoding", "utf-8",
+        "--impersonate", "chrome",
+        "--extractor-args", "youtube:player_client=mweb,default",
+        ...jsRuntimeArgs
+      ];
+      if (referer) {
+        titleArgs.push("--referer", referer);
+      }
+      titleArgs.push(url);
+
+      const { stdout } = await execFileAsync(ytdlpPath, titleArgs, { env, timeout: 15000 });
       if (stdout.trim()) {
         title = sanitizeFilename(stdout.trim());
       }
@@ -147,9 +150,13 @@ export async function downloadYoutubeVideo(
     const args: string[] = [
       ...jsRuntimeArgs,
       "--encoding", "utf-8",
+      "--impersonate", "chrome",
       "--extractor-args", "youtube:player_client=mweb,default",
       "--print", "after_move:filepath"
     ];
+    if (referer) {
+      args.push("--referer", referer);
+    }
 
     // Integrate FFmpeg location if available (only if it is an absolute path)
     if (ffmpegInfo.installed && ffmpegInfo.path && path.isAbsolute(ffmpegInfo.path)) {
