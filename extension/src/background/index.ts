@@ -241,6 +241,40 @@ chrome.runtime.onInstalled.addListener(() => {
   })();
 });
 
+// ---- Tab Media URL Caching (for catching HLS .m3u8 and stream URLs dynamically) ----
+const tabMediaCache = new Map<number, string[]>();
+
+if (typeof chrome !== "undefined" && chrome.webRequest) {
+  chrome.webRequest.onBeforeRequest.addListener(
+    (details) => {
+      const url = details.url;
+      if (url.includes(".m3u8") || url.includes(".mp4") || url.includes(".webm") || url.includes(".mkv")) {
+        const tabId = details.tabId;
+        if (tabId > 0) {
+          if (!tabMediaCache.has(tabId)) {
+            tabMediaCache.set(tabId, []);
+          }
+          const cache = tabMediaCache.get(tabId)!;
+          if (!cache.includes(url)) {
+            cache.push(url);
+          }
+        }
+      }
+    },
+    { urls: ["<all_urls>"] }
+  );
+
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    tabMediaCache.delete(tabId);
+  });
+
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === "loading") {
+      tabMediaCache.delete(tabId);
+    }
+  });
+}
+
 // ---- Messaging with popup/options UI ----
 type UiMessage =
   | { type: "getDashboard" }
@@ -262,9 +296,13 @@ type UiMessage =
   | { type: "getConversionRegistry" }
   | { type: "convertFileNow"; filename: string; base64Data: string; conversionId: string }
   | { type: "downloadYoutubeFromContent"; url: string; referer?: string }
-  | { type: "downloadDirectFromContent"; url: string; title: string };
+  | { type: "downloadDirectFromContent"; url: string; title: string }
+  | { type: "getTabMediaUrls" };
 
-chrome.runtime.onMessage.addListener((message: UiMessage, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: UiMessage, sender, sendResponse) => {
+  if (sender.tab && sender.tab.id) {
+    (message as any).tabId = sender.tab.id;
+  }
   void (async () => {
     try {
       sendResponse({ ok: true, data: await routeMessage(message) });
@@ -353,6 +391,10 @@ async function routeMessage(message: UiMessage): Promise<unknown> {
       const filename = `${safeTitle}.${ext}`;
       chrome.downloads.download({ url: message.url, filename, saveAs: false });
       return { ok: true };
+    }
+    case "getTabMediaUrls": {
+      const tabId = (message as any).tabId;
+      return tabId ? (tabMediaCache.get(tabId) || []) : [];
     }
     default:
       throw new Error(`Unknown message type: ${(message as { type: string }).type}`);

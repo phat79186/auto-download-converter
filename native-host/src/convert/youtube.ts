@@ -113,6 +113,22 @@ export async function downloadYoutubeVideo(
       return { ok: false, error: "FFmpeg is required to extract audio as MP3. Please install FFmpeg or configure its path in Settings." };
     }
 
+    // Resolve referer: fallback to checking url query params for nested URLs
+    let resolvedReferer = referer;
+    if (!resolvedReferer) {
+      try {
+        const parsedUrl = new URL(url);
+        for (const [key, val] of parsedUrl.searchParams.entries()) {
+          if (val.startsWith("http://") || val.startsWith("https://")) {
+            resolvedReferer = new URL(val).origin + "/";
+            break;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     log(`Fetching title for: ${url}`);
     let title = "youtube_video";
     const jsRuntimeArgs = process.execPath ? ["--js-runtimes", `node:${process.execPath}`] : [];
@@ -126,8 +142,8 @@ export async function downloadYoutubeVideo(
         "--extractor-args", "youtube:player_client=mweb,default",
         ...jsRuntimeArgs
       ];
-      if (referer) {
-        titleArgs.push("--referer", referer);
+      if (resolvedReferer) {
+        titleArgs.push("--referer", resolvedReferer);
       }
       titleArgs.push(url);
 
@@ -154,8 +170,8 @@ export async function downloadYoutubeVideo(
       "--extractor-args", "youtube:player_client=mweb,default",
       "--print", "after_move:filepath"
     ];
-    if (referer) {
-      args.push("--referer", referer);
+    if (resolvedReferer) {
+      args.push("--referer", resolvedReferer);
     }
 
     // Integrate FFmpeg location if available (only if it is an absolute path)

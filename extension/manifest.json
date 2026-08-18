@@ -35,7 +35,11 @@
     "storage",
     "notifications",
     "nativeMessaging",
-    "contextMenus"
+    "contextMenus",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "minimum_chrome_version": "116"
 }

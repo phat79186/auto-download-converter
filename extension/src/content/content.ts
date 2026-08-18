@@ -77,6 +77,7 @@ function createDownloadButton() {
 
     const url = window.location.href;
     const src = activeVideo.currentSrc || activeVideo.src;
+    const referer = document.referrer || window.location.href;
     
     const isMajorPlatform = 
       window.location.hostname.includes("youtube.com") || 
@@ -91,8 +92,6 @@ function createDownloadButton() {
       window.location.hostname.includes("vimeo.com") ||
       window.location.hostname.includes("twitch.tv");
 
-    const referer = document.referrer || window.location.href;
-
     if (isMajorPlatform) {
       chrome.runtime.sendMessage({
         type: "downloadYoutubeFromContent",
@@ -100,40 +99,47 @@ function createDownloadButton() {
         referer: referer
       });
     } else {
-      // For general websites, scan the page for actual HLS playlist URLs or media URLs
-      const mediaUrls = findMediaUrls();
-      const m3u8Url = mediaUrls.find(u => u.includes(".m3u8"));
-      const mp4Url = mediaUrls.find(u => u.includes(".mp4") || u.includes(".webm") || u.includes(".mkv"));
+      // Query background script's dynamic network capture cache for this tab
+      chrome.runtime.sendMessage({ type: "getTabMediaUrls" }, (response) => {
+        const capturedUrls: string[] = response && response.ok && Array.isArray(response.data) ? response.data : [];
+        const domUrls = findMediaUrls();
+        
+        // Merge captured network URLs and extracted DOM URLs
+        const combinedUrls = [...new Set([...capturedUrls, ...domUrls])];
+        
+        const m3u8Url = combinedUrls.find(u => u.includes(".m3u8"));
+        const mp4Url = combinedUrls.find(u => u.includes(".mp4") || u.includes(".webm") || u.includes(".mkv"));
 
-      if (m3u8Url) {
-        chrome.runtime.sendMessage({
-          type: "downloadYoutubeFromContent",
-          url: m3u8Url,
-          referer: referer
-        });
-      } else if (mp4Url) {
-        chrome.runtime.sendMessage({
-          type: "downloadDirectFromContent",
-          url: mp4Url,
-          title: document.title || "video"
-        });
-      } else {
-        // Fallback: If no direct stream is extracted, try downloading the frame page URL via generic extractor
-        const isDirect = src && !src.startsWith("blob:") && !src.startsWith("data:") && (src.startsWith("http://") || src.startsWith("https://"));
-        if (isDirect) {
+        if (m3u8Url) {
+          chrome.runtime.sendMessage({
+            type: "downloadYoutubeFromContent",
+            url: m3u8Url,
+            referer: referer
+          });
+        } else if (mp4Url) {
           chrome.runtime.sendMessage({
             type: "downloadDirectFromContent",
-            url: src,
+            url: mp4Url,
             title: document.title || "video"
           });
         } else {
-          chrome.runtime.sendMessage({
-            type: "downloadYoutubeFromContent",
-            url: url,
-            referer: referer
-          });
+          // Fallback: Use direct src if it's a HTTP URL, otherwise use frame page URL
+          const isDirect = src && !src.startsWith("blob:") && !src.startsWith("data:") && (src.startsWith("http://") || src.startsWith("https://"));
+          if (isDirect) {
+            chrome.runtime.sendMessage({
+              type: "downloadDirectFromContent",
+              url: src,
+              title: document.title || "video"
+            });
+          } else {
+            chrome.runtime.sendMessage({
+              type: "downloadYoutubeFromContent",
+              url: url,
+              referer: referer
+            });
+          }
         }
-      }
+      });
     }
   });
 }
