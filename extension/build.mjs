@@ -33,6 +33,9 @@ await bundle(path.join(__dirname, "src/options/options.ts"), path.join(OUT_DIR, 
 console.log("Bundling content script...");
 await bundle(path.join(__dirname, "src/content/content.ts"), path.join(OUT_DIR, "content.js"), "iife");
 
+console.log("Bundling inject script...");
+await bundle(path.join(__dirname, "src/content/inject.ts"), path.join(OUT_DIR, "inject.js"), "iife");
+
 console.log("Copying static assets...");
 fs.copyFileSync(path.join(__dirname, "manifest.json"), path.join(OUT_DIR, "manifest.json"));
 fs.copyFileSync(path.join(__dirname, "src/popup/popup.html"), path.join(OUT_DIR, "popup.html"));

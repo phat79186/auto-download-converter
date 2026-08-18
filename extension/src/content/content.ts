@@ -1,6 +1,28 @@
 let activeVideo: HTMLVideoElement | null = null;
 let downloadBtn: HTMLDivElement | null = null;
 let isHoveringButton = false;
+const interceptedUrls: string[] = [];
+
+// Inject request interceptor into the main world page
+function injectScript() {
+  try {
+    const script = document.createElement("script");
+    script.src = chrome.runtime.getURL("inject.js");
+    script.onload = () => script.remove();
+    (document.head || document.documentElement).appendChild(script);
+  } catch (err) {
+    console.error("Failed to inject media interceptor script:", err);
+  }
+}
+injectScript();
+
+// Listen to intercepted URLs from the main world
+window.addEventListener("adc_media_url_found", (e: any) => {
+  const url = e.detail.url;
+  if (url && !interceptedUrls.includes(url)) {
+    interceptedUrls.push(url);
+  }
+});
 
 function getVideos(): HTMLVideoElement[] {
   return Array.from(document.querySelectorAll("video"));
@@ -99,47 +121,43 @@ function createDownloadButton() {
         referer: referer
       });
     } else {
-      // Query background script's dynamic network capture cache for this tab
-      chrome.runtime.sendMessage({ type: "getTabMediaUrls" }, (response) => {
-        const capturedUrls: string[] = response && response.ok && Array.isArray(response.data) ? response.data : [];
-        const domUrls = findMediaUrls();
-        
-        // Merge captured network URLs and extracted DOM URLs
-        const combinedUrls = [...new Set([...capturedUrls, ...domUrls])];
-        
-        const m3u8Url = combinedUrls.find(u => u.includes(".m3u8"));
-        const mp4Url = combinedUrls.find(u => u.includes(".mp4") || u.includes(".webm") || u.includes(".mkv"));
+      const domUrls = findMediaUrls();
+      
+      // Merge captured network URLs and extracted DOM URLs
+      const combinedUrls = [...new Set([...interceptedUrls, ...domUrls])];
+      
+      const m3u8Url = combinedUrls.find(u => u.includes(".m3u8"));
+      const mp4Url = combinedUrls.find(u => u.includes(".mp4") || u.includes(".webm") || u.includes(".mkv"));
 
-        if (m3u8Url) {
-          chrome.runtime.sendMessage({
-            type: "downloadYoutubeFromContent",
-            url: m3u8Url,
-            referer: referer
-          });
-        } else if (mp4Url) {
+      if (m3u8Url) {
+        chrome.runtime.sendMessage({
+          type: "downloadYoutubeFromContent",
+          url: m3u8Url,
+          referer: referer
+        });
+      } else if (mp4Url) {
+        chrome.runtime.sendMessage({
+          type: "downloadDirectFromContent",
+          url: mp4Url,
+          title: document.title || "video"
+        });
+      } else {
+        // Fallback: Use direct src if it's a HTTP URL, otherwise use frame page URL
+        const isDirect = src && !src.startsWith("blob:") && !src.startsWith("data:") && (src.startsWith("http://") || src.startsWith("https://"));
+        if (isDirect) {
           chrome.runtime.sendMessage({
             type: "downloadDirectFromContent",
-            url: mp4Url,
+            url: src,
             title: document.title || "video"
           });
         } else {
-          // Fallback: Use direct src if it's a HTTP URL, otherwise use frame page URL
-          const isDirect = src && !src.startsWith("blob:") && !src.startsWith("data:") && (src.startsWith("http://") || src.startsWith("https://"));
-          if (isDirect) {
-            chrome.runtime.sendMessage({
-              type: "downloadDirectFromContent",
-              url: src,
-              title: document.title || "video"
-            });
-          } else {
-            chrome.runtime.sendMessage({
-              type: "downloadYoutubeFromContent",
-              url: url,
-              referer: referer
-            });
-          }
+          chrome.runtime.sendMessage({
+            type: "downloadYoutubeFromContent",
+            url: url,
+            referer: referer
+          });
         }
-      });
+      }
     }
   });
 }
