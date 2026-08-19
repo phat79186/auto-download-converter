@@ -193,8 +193,8 @@ function positionButton(video: HTMLVideoElement) {
     }
   }
 
-  const top = window.scrollY + rect.top + 12;
-  const left = window.scrollX + rect.right - 145; // 145px width approximate
+  const top = rect.top + 12;
+  const left = rect.right - 145; // 145px width approximate
 
   downloadBtn.style.top = `${top}px`;
   downloadBtn.style.left = `${left}px`;
@@ -290,5 +290,18 @@ window.addEventListener("resize", () => {
     positionButton(activeVideo);
   }
 }, { passive: true });
+
+// Instantly catch hovering state on document entry without waiting for mousemove ticks
+document.addEventListener("mouseover", (e) => {
+  const target = e.target as HTMLElement;
+  if (target && (target.tagName === "VIDEO" || target.closest("video"))) {
+    const video = target.tagName === "VIDEO" ? (target as HTMLVideoElement) : target.closest("video");
+    if (video && video.getBoundingClientRect().width > 100 && video.getBoundingClientRect().height > 100) {
+      activeVideo = video;
+      createDownloadButton();
+      positionButton(video);
+    }
+  }
+}, { capture: true, passive: true });
 
 export {};

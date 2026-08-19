@@ -1,5 +1,5 @@
 .adc-global-download-btn-container {
-  position: absolute;
+  position: fixed;
   z-index: 2147483647;
   display: none;
   opacity: 0;
