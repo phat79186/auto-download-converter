@@ -102,6 +102,7 @@ function createDownloadButton() {
     checkMouseLeave();
   });
 
+  const buttonEl = downloadBtn.querySelector("button")!;
   let isDownloading = false;
   buttonEl.addEventListener("click", (e) => {
     e.stopPropagation();
