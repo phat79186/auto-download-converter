@@ -100,7 +100,8 @@ export async function downloadYoutubeVideo(
   outputDir: string,
   allowedRoots: string[],
   configuredPaths?: Partial<Record<"ffmpeg", string>>,
-  referer?: string
+  referer?: string,
+  customTitle?: string
 ): Promise<YoutubeDownloadResult> {
   let outputTemplate: string | null = null;
   try {
@@ -131,28 +132,31 @@ export async function downloadYoutubeVideo(
 
     log(`Fetching title for: ${url}`);
     let title = "youtube_video";
-    const jsRuntimeArgs = process.execPath ? ["--js-runtimes", `node:${process.execPath}`] : [];
-    
-    try {
-      const env = { ...process.env, PYTHONIOENCODING: "utf-8" };
-      const titleArgs = [
-        "--print", "title",
-        "--encoding", "utf-8",
-        "--impersonate", "chrome",
-        "--extractor-args", "youtube:player_client=mweb,default",
-        ...jsRuntimeArgs
-      ];
-      if (resolvedReferer) {
-        titleArgs.push("--referer", resolvedReferer);
-      }
-      titleArgs.push(url);
+    if (customTitle && customTitle.trim()) {
+      title = sanitizeFilename(customTitle.trim());
+    } else {
+      const jsRuntimeArgs = process.execPath ? ["--js-runtimes", `node:${process.execPath}`] : [];
+      try {
+        const env = { ...process.env, PYTHONIOENCODING: "utf-8" };
+        const titleArgs = [
+          "--print", "title",
+          "--encoding", "utf-8",
+          "--impersonate", "chrome",
+          "--extractor-args", "youtube:player_client=mweb,default",
+          ...jsRuntimeArgs
+        ];
+        if (resolvedReferer) {
+          titleArgs.push("--referer", resolvedReferer);
+        }
+        titleArgs.push(url);
 
-      const { stdout } = await execFileAsync(ytdlpPath, titleArgs, { env, timeout: 15000 });
-      if (stdout.trim()) {
-        title = sanitizeFilename(stdout.trim());
+        const { stdout } = await execFileAsync(ytdlpPath, titleArgs, { env, timeout: 15000 });
+        if (stdout.trim()) {
+          title = sanitizeFilename(stdout.trim());
+        }
+      } catch (err) {
+        log("Could not fetch video title, using default. Error:", (err as Error).message);
       }
-    } catch (err) {
-      log("Could not fetch video title, using default. Error:", (err as Error).message);
     }
 
     // Resolve output path
@@ -163,11 +167,14 @@ export async function downloadYoutubeVideo(
     outputTemplate = finalOutputPath.replace(/\.[^.]+$/, ".%(ext)s");
 
     log(`Downloading to: ${finalOutputPath}`);
+    const jsRuntimeArgs = process.execPath ? ["--js-runtimes", `node:${process.execPath}`] : [];
     const args: string[] = [
       ...jsRuntimeArgs,
       "--encoding", "utf-8",
       "--impersonate", "chrome",
       "--extractor-args", "youtube:player_client=mweb,default",
+      "--concurrent-fragments", "8",
+      "--hls-prefer-native",
       "--print", "after_move:filepath"
     ];
     if (resolvedReferer) {
@@ -192,9 +199,9 @@ export async function downloadYoutubeVideo(
 
     args.push("-o", outputTemplate, url);
 
-    // Run download (max 5 minutes)
+    // Run download (max 15 minutes)
     const env = { ...process.env, PYTHONIOENCODING: "utf-8" };
-    const { stdout } = await execFileAsync(ytdlpPath, args, { env, timeout: 300000 });
+    const { stdout } = await execFileAsync(ytdlpPath, args, { env, timeout: 900000 });
 
     const lines = stdout.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
     

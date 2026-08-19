@@ -263,6 +263,7 @@ export class NativeMessagingClient {
     jobId: string;
     url: string;
     referer?: string;
+    title?: string;
     targetFormat: "mp4" | "mp3";
     outputDir: string;
     allowedRoots: string[];
@@ -281,12 +282,13 @@ export class NativeMessagingClient {
         jobId: params.jobId,
         url: params.url,
         referer: params.referer,
+        title: params.title,
         targetFormat: params.targetFormat,
         outputDir: params.outputDir,
         allowedRoots: params.allowedRoots,
         configuredPaths: params.configuredPaths,
       },
-      10 * 60 * 1000 // YouTube downloads can take several minutes
+      15 * 60 * 1000 // Large HLS downloads can take several minutes
     );
     return res;
   }

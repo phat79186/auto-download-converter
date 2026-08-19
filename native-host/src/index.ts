@@ -83,7 +83,8 @@ async function dispatch(req: HostRequest): Promise<void> {
         req.outputDir,
         req.allowedRoots,
         req.configuredPaths,
-        req.referer
+        req.referer,
+        req.title
       );
       writeMessage({
         type: "youtubeDownload",

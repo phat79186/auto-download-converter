@@ -102,11 +102,22 @@ function createDownloadButton() {
     checkMouseLeave();
   });
 
-  const buttonEl = downloadBtn.querySelector("button")!;
+  let isDownloading = false;
   buttonEl.addEventListener("click", (e) => {
     e.stopPropagation();
     e.preventDefault();
-    if (!activeVideo) return;
+    if (!activeVideo || isDownloading) return;
+
+    isDownloading = true;
+    buttonEl.style.color = "#30d158";
+    buttonEl.style.transform = "scale(0.92)";
+    setTimeout(() => {
+      buttonEl.style.transform = "";
+    }, 200);
+    setTimeout(() => {
+      isDownloading = false;
+      buttonEl.style.color = "";
+    }, 4000);
 
     const url = window.location.href;
     const src = activeVideo.currentSrc || activeVideo.src;
@@ -125,11 +136,14 @@ function createDownloadButton() {
       window.location.hostname.includes("vimeo.com") ||
       window.location.hostname.includes("twitch.tv");
 
+    const pageTitle = document.title || "video";
+
     if (isMajorPlatform) {
       chrome.runtime.sendMessage({
         type: "downloadYoutubeFromContent",
         url: url,
-        referer: referer
+        referer: referer,
+        title: pageTitle
       });
     } else {
       const domUrls = findMediaUrls();
@@ -144,13 +158,14 @@ function createDownloadButton() {
         chrome.runtime.sendMessage({
           type: "downloadYoutubeFromContent",
           url: m3u8Url,
-          referer: referer
+          referer: referer,
+          title: pageTitle
         });
       } else if (mp4Url) {
         chrome.runtime.sendMessage({
           type: "downloadDirectFromContent",
           url: mp4Url,
-          title: document.title || "video"
+          title: pageTitle
         });
       } else {
         // Fallback: Use direct src if it's a HTTP URL, otherwise use frame page URL
@@ -159,13 +174,14 @@ function createDownloadButton() {
           chrome.runtime.sendMessage({
             type: "downloadDirectFromContent",
             url: src,
-            title: document.title || "video"
+            title: pageTitle
           });
         } else {
           chrome.runtime.sendMessage({
             type: "downloadYoutubeFromContent",
             url: url,
-            referer: referer
+            referer: referer,
+            title: pageTitle
           });
         }
       }

@@ -295,7 +295,7 @@ type UiMessage =
   | { type: "pingNativeHost" }
   | { type: "getConversionRegistry" }
   | { type: "convertFileNow"; filename: string; base64Data: string; conversionId: string }
-  | { type: "downloadYoutubeFromContent"; url: string; referer?: string }
+  | { type: "downloadYoutubeFromContent"; url: string; referer?: string; title?: string }
   | { type: "downloadDirectFromContent"; url: string; title: string }
   | { type: "getTabMediaUrls" };
 
@@ -382,7 +382,7 @@ async function routeMessage(message: UiMessage): Promise<unknown> {
       return { base64Data: btoa(binary), mimeType: result.mimeType };
     }
     case "downloadYoutubeFromContent": {
-      void handleYoutubeDownload(message.url, message.referer);
+      void handleYoutubeDownload(message.url, message.referer, message.title);
       return { ok: true };
     }
     case "downloadDirectFromContent": {
@@ -428,7 +428,7 @@ async function getBaseDownloadsDir(): Promise<string> {
   });
 }
 
-async function handleYoutubeDownload(url: string, referer?: string): Promise<void> {
+async function handleYoutubeDownload(url: string, referer?: string, title?: string): Promise<void> {
   const baseDir = await getBaseDownloadsDir();
   
   let sourceName = "YouTube Video";
@@ -518,6 +518,7 @@ async function handleYoutubeDownload(url: string, referer?: string): Promise<voi
       jobId,
       url,
       referer,
+      title,
       targetFormat,
       outputDir: targetDir,
       allowedRoots: roots,
