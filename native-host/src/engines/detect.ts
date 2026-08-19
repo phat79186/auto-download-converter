@@ -21,7 +21,9 @@ const PROBES: EngineProbe[] = [
       ? [
           "ffmpeg.exe",
           "ffmpeg",
-          "C:\\ProgramData\\chocolatey\\bin\\ffmpeg.exe"
+          "C:\\ProgramData\\chocolatey\\bin\\ffmpeg.exe",
+          ...(process.env.LOCALAPPDATA ? [path.join(process.env.LOCALAPPDATA, "Microsoft\\WindowsApps\\ffmpeg.exe")] : []),
+          ...(process.env.USERPROFILE ? [path.join(process.env.USERPROFILE, "AppData\\Local\\Microsoft\\WindowsApps\\ffmpeg.exe")] : [])
         ]
       : ["ffmpeg"],
     versionArgs: ["-version"],
