@@ -25,7 +25,19 @@ window.addEventListener("adc_media_url_found", (e: any) => {
 });
 
 function getVideos(): HTMLVideoElement[] {
-  return Array.from(document.querySelectorAll("video"));
+  const list = Array.from(document.querySelectorAll("video"));
+  return list.sort((a, b) => {
+    const aPlaying = !a.paused && a.currentTime > 0 ? 1 : 0;
+    const bPlaying = !b.paused && b.currentTime > 0 ? 1 : 0;
+    if (aPlaying !== bPlaying) {
+      return bPlaying - aPlaying; // Prioritize playing
+    }
+    const aRect = a.getBoundingClientRect();
+    const bRect = b.getBoundingClientRect();
+    const aArea = aRect.width * aRect.height;
+    const bArea = bRect.width * bRect.height;
+    return bArea - aArea; // Prioritize larger video
+  });
 }
 
 function findMediaUrls(): string[] {
@@ -161,6 +173,18 @@ function createDownloadButton() {
   });
 }
 
+function isPlayerOverlay(video: HTMLVideoElement, element: Element): boolean {
+  let current: HTMLElement | null = video.parentElement;
+  for (let i = 0; i < 5 && current; i++) {
+    if (current === document.body || current === document.documentElement) break;
+    if (current.contains(element)) {
+      return true;
+    }
+    current = current.parentElement;
+  }
+  return false;
+}
+
 function positionButton(video: HTMLVideoElement) {
   if (!downloadBtn) return;
   const rect = video.getBoundingClientRect();
@@ -184,7 +208,8 @@ function positionButton(video: HTMLVideoElement) {
       !video.contains(elementAtPoint) && 
       !elementAtPoint.contains(video) && 
       elementAtPoint.tagName !== "VIDEO" &&
-      !elementAtPoint.className.includes("adc-") // Do not hide when hovering over our own button
+      !elementAtPoint.className.includes("adc-") && // Do not hide when hovering over our own button
+      !isPlayerOverlay(video, elementAtPoint)
     ) {
       // It's covered by something else (like a sticky header)
       downloadBtn.style.display = "none";
